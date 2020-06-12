@@ -1,3 +1,17 @@
+"""
+    The grades_lambda is the AWS lambda class that will handle grade-related events. Its primary responsibility
+    is to take in an event, parse out key details, such as which homework it's relevant to and whether an
+    individual student or all students, then return grading details for that homework.
+
+    The basic flow is:
+
+    event happens   =>  lambda_handler is invoked   =>  dynamo DB is updated w/ submission & score
+                        > Examine event
+                        > Determine intent
+                        > Attempt to act on it
+                        > Provide status response
+"""
+
 import sys
 sys.path.append('/opt')
 import os
@@ -26,6 +40,15 @@ UPDATE_TESTS_REQUEST    = 'UPDATE_TESTS'
 
 
 def lambda_handler(event, context):
+    """ This lambda handler is meant to take in an event and context, then:
+
+        1. Parse out the homework details: homework_number, secret_key, request_type, payload
+        2. Overwrite secret_key and homework_id with their textual versions
+        3. Determine which type of request is inbound
+            > HOMEWORK_ID_REQUEST:      return the homework ID in string form
+            > UPDATE_METADATA_REQUEST:  update the assignment metadata in the dynamo db
+            > UPDATE_TESTS_REQUEST:     update the test cases in the dynamo db
+    """
     try:
         homework_number, secret_key, request_type, payload = parse_event(event)
         secret_key  = get_course_id(secret_key)
@@ -50,17 +73,24 @@ def lambda_handler(event, context):
 
 
 def parse_event(event):
+    """ Simple helper method to parse an event as a dict.
+    Returns: (homework_number, secret_key, request_type, payload)
+
+    Payload should contain metadata
+    """
     try:
         body = ast.literal_eval(event['body'])
         return body['homework_number'],  \
                body['secret_key'], \
                body['request_type'],  \
-               deserialize(body['payload']) 
+               deserialize(body['payload'])
     except:
         raise Exception('Malformed payload.')
-        
-        
+
+
 def get_course_id(secret_key):
+    """ Returns the course ID based on a secret key. Response would look something like: CIS545_Spring_2019
+    """
     try:
         response = dynamo.get_item(TableName = CLASSES_TABLE, Key={'secret_key': {'S': secret_key}})
         return response['Item']['course_id']['S']
@@ -69,10 +99,25 @@ def get_course_id(secret_key):
 
 
 def get_homework_id(course_id, homework_number):
+    """ Helper function to get the unique key of a given homework based on where it falls in the
+     assignment schedule of a course. Gets appended to the course_id, then returned in long string
+     in the fashion of: CIS545_Spring_2019_HW1
+    """
     return '{}_HW{}'.format(course_id, homework_number)
 
 
 def update_metadata(homework_id, payload):
+    """ Function to configure the metadata of a homework. The actual setup
+    of the metadata is contained in the payload, but must be in the form:
+
+    {
+        max_daily_submissions: -1,
+        total_score: -1,
+        deadline: ...
+    }
+
+    Once parsed, it gets added to the DB or updated if already in existence
+    """
     try:
         db_entry = {
             'TableName': METADATA_TABLE,
@@ -98,6 +143,8 @@ def update_metadata(homework_id, payload):
 
 
 def update_tests(homework_id, test_cases, libraries):
+    """ This adds a test case to the dynamo DB to be returned later in grading
+    """
     try:
         db_entry = {
             'TableName': TEST_CASES_TABLE,
@@ -119,6 +166,8 @@ def update_tests(homework_id, test_cases, libraries):
 
 
 def get_additional_libraries(libraries): # TO-FINISH #
+    """ Appears unfinished per comment, but imports libraries required for use in grading
+    """
     try:
         packages = libraries['packages']
         imports = libraries['imports']
@@ -145,16 +194,31 @@ def get_additional_libraries(libraries): # TO-FINISH #
 
 
 def serialize(obj):
+    """ Simple helper method to encode a serialized object
+
+    Code is duplicated here. Possibly because the other file may not always be
+    accessible?
+    """
     byte_serialized = dill.dumps(obj, recurse = True)
     return base64.b64encode(byte_serialized).decode("utf-8") 
     
 
 def deserialize(obj):
+    """ Simple helper method to decode a base64 encoded object
+
+    Code is duplicated here. Possibly because the other file may not always be
+    accessible?
+    """
     byte_decoded = base64.b64decode(obj)
     return dill.loads(byte_decoded)
     
 
 def build_http_response(status_code, message):
+    """ Build formatted http response as string
+
+    Code is duplicated here. Possibly because the other file may not always be
+    accessible?
+    """
     return { 
         'statusCode': status_code,
         'body': str(message),

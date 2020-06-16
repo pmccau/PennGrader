@@ -37,6 +37,7 @@ ERROR   = 400
 HOMEWORK_ID_REQUEST     = 'GET_HOMEWORK_ID'
 UPDATE_METADATA_REQUEST = 'UPDATE_METADATA'
 UPDATE_TESTS_REQUEST    = 'UPDATE_TESTS'
+ADD_NEW_COURSE_REQUEST  = 'ADD_NEW_COURSE'
 
 
 def lambda_handler(event, context):
@@ -67,6 +68,9 @@ def lambda_handler(event, context):
             test_cases = payload['test_cases'] 
             update_tests(homework_id, test_cases, libraries)
             response = 'Success: Test cases updated successfully.'
+        elif request_type == ADD_NEW_COURSE_REQUEST:
+            add_course(payload['secret_key'], payload['course_id'])
+            response = 'Success: Course created successfully.'
         return build_http_response(SUCCESS, response)
     except Exception as exception:
         return build_http_response(ERROR, exception)
@@ -104,6 +108,26 @@ def get_homework_id(course_id, homework_number):
      in the fashion of: CIS545_Spring_2019_HW1
     """
     return '{}_HW{}'.format(course_id, homework_number)
+
+
+def add_course(secret_key, course_id):
+    """ Function to create a new course with an ID and secret
+    """
+    try:
+        db_entry = {
+            'TableName': CLASSES_TABLE,
+            'Item': {
+                'secret_key': {
+                    'S': secret_key
+                },
+                'course_id': {
+                    'S': course_id
+                }
+            }
+        }
+        dynamo.put_item(**db_entry)
+    except Exception as e:
+        raise Exception('ERROR: Could not create new course. {}'.format(e))
 
 
 def update_metadata(homework_id, payload):

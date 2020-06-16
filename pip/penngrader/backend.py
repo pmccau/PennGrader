@@ -15,6 +15,7 @@ HOMEWORK_ID_REQUEST     = 'GET_HOMEWORK_ID'
 UPDATE_METADATA_REQUEST = 'UPDATE_METADATA'
 UPDATE_TESTS_REQUEST    = 'UPDATE_TESTS'
 GRADES_REQUEST          = 'ALL_STUDENTS_GRADES'
+ADD_NEW_COURSE_REQUEST  = 'ADD_NEW_COURSE'
 
 # Lambda endpoints
 config_api_url = 'https://uhbuar7r8e.execute-api.us-east-1.amazonaws.com/default/HomeworkConfig'
@@ -47,7 +48,7 @@ class PennGraderBackend:
     
     
     def __init__(self, secret_key, homework_number):
-        """ Initialization function to start up the backend via lambda for a particular homework in a course
+        """ Initialization function to start up the backend via grades_lambda for a particular homework in a course
         """
         self.secret_key = secret_key
         self.homework_number = homework_number
@@ -58,6 +59,19 @@ class PennGraderBackend:
             print(response)
         else:
             print(self.homework_id)
+
+
+    def create_new_course(self, valid_current_secret, new_secret, course_id):
+        request = {
+            'secret_key': valid_current_secret,
+            'request_type': ADD_NEW_COURSE_REQUEST,
+            'payload': self._serialize({
+                'course_id': course_id,
+                'secret_key': new_secret
+            })
+        }
+        print(self._send_request(request, config_api_url, config_api_key))
+
             
     def update_metadata(self, deadline, total_score, max_daily_submissions):
         """ Updates the metadata of an assignment, including deadline, total score,

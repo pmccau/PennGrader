@@ -179,15 +179,19 @@ def deserialize(obj):
     return dill.loads(byte_decoded)
     
     
-def build_response_message(student_score, max_score):
+def build_response_message(student_score, max_score, msg=None):
     """ Build the string response message
     """
+    out = ""
     if student_score == max_score:
-        return 'Correct! You earned {}/{} points. You are a star!\n\n'.format(student_score, max_score) + \
+        out = 'Correct! You earned {}/{} points. You are a star!\n\n'.format(student_score, max_score) + \
                'Your submission has been successfully recorded in the gradebook.'
     else:
-        return 'You earned {}/{} points.\n\n'.format(student_score, max_score) + \
+        out = 'You earned {}/{} points.\n\n'.format(student_score, max_score) + \
                'But, don\'t worry you can re-submit and we will keep only your latest score.'
+    if msg is not None:
+        out += "\n\n{}".format(msg)
+    return out
 
 
 def build_http_response(status_code, message):
